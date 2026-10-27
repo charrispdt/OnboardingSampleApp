@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const store = require('./data/store');
+const { registerCustomer } = require('./services/customers');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -17,6 +18,18 @@ app.get('/api/health', (req, res) => {
 // Get all customers
 app.get('/api/customers', (req, res) => {
   res.json(store.getCustomers());
+});
+
+// Create a customer, with a pending tenant and onboarding state
+app.post('/api/customers', (req, res) => {
+  const result = registerCustomer(req.body);
+  if (result.errors) {
+    return res.status(400).json({ error: 'Invalid customer', fields: result.errors });
+  }
+  if (result.conflict) {
+    return res.status(409).json({ error: result.conflict });
+  }
+  res.status(201).json(result);
 });
 
 // Get customer by ID

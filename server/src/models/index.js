@@ -9,6 +9,8 @@
  * @property {string} industry - Industry vertical
  * @property {string} region - Geographic region
  * @property {string} contactEmail - Primary contact email
+ * @property {string} currency - ISO currency code of the customer's amounts
+ * @property {string} dateFormat - Date format used in the customer's source files
  * @property {string} createdAt - ISO timestamp
  */
 
@@ -48,6 +50,8 @@ function createCustomer(data) {
     industry: data.industry || '',
     region: data.region || '',
     contactEmail: data.contactEmail || '',
+    currency: data.currency || '',
+    dateFormat: data.dateFormat || '',
     createdAt: data.createdAt || new Date().toISOString()
   };
 }
