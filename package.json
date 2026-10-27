@@ -9,10 +9,17 @@
     "install:all": "npm install && cd server && npm install && cd ../client && npm install",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "node --test scripts/check-node.test.js && cd server && npm test",
-    "test:e2e": "npx playwright test"
+    "test:e2e": "npx playwright test",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.40.0",
     "concurrently": "^8.2.2",
-    "@playwright/test": "^1.40.0"
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0"
   }
 }
