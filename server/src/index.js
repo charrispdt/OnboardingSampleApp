@@ -2,7 +2,13 @@ const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
 const store = require('./data/store');
-const { createCustomer, createDefaultOnboardingSteps, validateCustomerCreate } = require('./models');
+const {
+  createCustomer,
+  createTenant,
+  createDefaultOnboardingSteps,
+  validateCustomerCreate,
+  validateTenantProvision
+} = require('./models');
 const { CLIENT_TARGET_FIELDS, suggestClientMapping, validateClientMapping } = require('./models/mapping');
 
 const app = express();
@@ -114,6 +120,11 @@ app.put('/api/customers/:id/mappings/clients', (req, res) => {
   res.json(store.saveClientMapping(req.params.id, value));
 });
 
+// Tenant plans
+app.get('/api/tenants/plans', (req, res) => {
+  res.json(store.getPlans());
+});
+
 // Get tenant by customer ID
 app.get('/api/tenants/:customerId', (req, res) => {
   const tenant = store.getTenantByCustomerId(req.params.customerId);
@@ -121,6 +132,52 @@ app.get('/api/tenants/:customerId', (req, res) => {
     return res.status(404).json({ error: 'Tenant not found' });
   }
   res.json(tenant);
+});
+
+// Simulated async provisioning
+function scheduleProvisioning(tenant) {
+  const delay = Number(process.env.PROVISION_DELAY_MS ?? 2000);
+  setTimeout(() => {
+    if (tenant.subdomain.startsWith('fail-')) {
+      store.updateTenant(tenant.id, { status: 'failed', error: 'Provisioning failed: simulated error' });
+      store.setStepStatus(tenant.customerId, 'Tenant Setup', 'failed');
+    } else {
+      store.updateTenant(tenant.id, { status: 'active', error: null });
+      store.setStepStatus(tenant.customerId, 'Tenant Setup', 'completed');
+    }
+  }, delay).unref();
+}
+
+// Provision a tenant for a customer
+app.post('/api/customers/:id/tenant', (req, res) => {
+  const customerId = req.params.id;
+  if (!store.getCustomerById(customerId)) {
+    return res.status(404).json({ error: 'Customer not found' });
+  }
+  const state = store.getOnboardingState(customerId);
+  const mapping = state?.steps.find(s => s.name === 'Data Mapping');
+  if (mapping?.status !== 'completed') {
+    return res.status(409).json({ error: 'Complete Data Mapping first' });
+  }
+  const { value, errors } = validateTenantProvision(req.body, store.getPlans().map(p => p.key));
+  if (errors) {
+    return res.status(400).json({ error: 'Validation failed', errors });
+  }
+  const taken = store.findTenantBySubdomain(value.subdomain);
+  if (taken && taken.customerId !== customerId) {
+    return res.status(409).json({ error: 'Subdomain already taken' });
+  }
+  const existing = store.getTenantByCustomerId(customerId);
+  if (existing && (existing.status === 'provisioning' || existing.status === 'active')) {
+    return res.status(409).json({ error: 'Tenant already provisioned' });
+  }
+  const fields = { ...value, status: 'provisioning', error: null };
+  const tenant = existing
+    ? store.updateTenant(existing.id, fields)
+    : store.addTenant(createTenant({ ...fields, id: `tenant_${crypto.randomUUID()}`, customerId }));
+  store.setStepStatus(customerId, 'Tenant Setup', 'in_progress');
+  scheduleProvisioning(tenant);
+  res.status(202).json(tenant);
 });
 
 // Start server

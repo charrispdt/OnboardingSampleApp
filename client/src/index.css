@@ -241,3 +241,44 @@ header p {
   border: 1px solid #d1d5db;
   border-radius: 6px;
 }
+
+.tenant-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 12px 0;
+  background: #e5e7eb;
+  color: #6b7280;
+}
+
+.tenant-badge.provisioning {
+  background: #f59e0b;
+  color: white;
+}
+
+.tenant-badge.active {
+  background: #10b981;
+  color: white;
+}
+
+.tenant-badge.failed {
+  background: #ef4444;
+  color: white;
+}
+
+.field-hint {
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+.tenant-details dt {
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.tenant-details dd {
+  margin: 0;
+  color: #374151;
+}

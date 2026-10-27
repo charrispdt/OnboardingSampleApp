@@ -31,10 +31,10 @@ test.describe('Onboarding Dashboard', () => {
   test('should switch between tabs', async ({ page }) => {
     await page.goto('/');
 
-    // Click on Tenant Setup tab (Customer Info and Data Mapping now have real UIs)
-    await page.getByRole('button', { name: 'Tenant Setup' }).click();
+    // Click on Import tab (the remaining placeholder)
+    await page.getByRole('button', { name: 'Import' }).click();
 
     // Verify placeholder content is shown
-    await expect(page.locator('.placeholder h2')).toContainText('Tenant Setup');
+    await expect(page.locator('.placeholder h2')).toContainText('Import');
   });
 });

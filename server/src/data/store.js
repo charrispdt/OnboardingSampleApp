@@ -4,6 +4,7 @@
  */
 
 const { createCustomer, createTenant, createDefaultOnboardingSteps, calculateProgress } = require('../models');
+const { PLAN_SEED } = require('./plans');
 
 /**
  * Data Transfer Objects (DTOs)
@@ -48,6 +49,7 @@ const { createCustomer, createTenant, createDefaultOnboardingSteps, calculatePro
 /**
  * Internal shape of the in-memory store.
  * @typedef {Object} StoreData
+ * @property {import('./plans').Plan[]} plans
  * @property {CustomerDTO[]} customers
  * @property {TenantDTO[]} tenants
  * @property {OnboardingStateDTO[]} onboardingStates
@@ -57,11 +59,18 @@ const { createCustomer, createTenant, createDefaultOnboardingSteps, calculatePro
 // In-memory storage
 /** @type {StoreData} */
 const store = {
+  plans: [],
   customers: [],
   tenants: [],
   onboardingStates: [],
   clientMappings: {}
 };
+
+// Seed tenant plans
+/** @returns {void} */
+function seedPlans() {
+  store.plans.push(...PLAN_SEED.map(plan => ({ ...plan, features: [...plan.features] })));
+}
 
 // Seed with example data
 /** @returns {void} */
@@ -99,6 +108,7 @@ function seedData() {
 }
 
 // Initialize with seed data
+seedPlans();
 seedData();
 
 // Store access functions
@@ -217,13 +227,57 @@ function saveClientMapping(customerId, mapping) {
   store.clientMappings[customerId] = mapping;
   const state = getOnboardingState(customerId);
   if (state) {
-    const steps = state.steps.map(s => (s.name === 'Data Mapping' ? { ...s, status: 'completed' } : s));
-    updateOnboardingState(customerId, { steps, progressPercent: calculateProgress(steps) });
+    setStepStatus(customerId, 'Data Mapping', 'completed');
   }
   return mapping;
 }
 
+/**
+ * Sets a step's status and recomputes overall progress.
+ * @param {string} customerId
+ * @param {string} stepName
+ * @param {string} status
+ * @returns {OnboardingStateDTO|null}
+ */
+function setStepStatus(customerId, stepName, status) {
+  const state = getOnboardingState(customerId);
+  if (!state) return null;
+  const steps = state.steps.map(s => (s.name === stepName ? { ...s, status } : s));
+  return updateOnboardingState(customerId, { steps, progressPercent: calculateProgress(steps) });
+}
+
+/**
+ * Finds a tenant by subdomain.
+ * @param {string} subdomain
+ * @returns {TenantDTO|undefined}
+ */
+function findTenantBySubdomain(subdomain) {
+  return store.tenants.find(t => t.subdomain === subdomain);
+}
+
+/**
+ * Shallow-merges updates into a tenant and bumps updatedAt.
+ * @param {string} id
+ * @param {Partial<TenantDTO>} updates
+ * @returns {TenantDTO|null}
+ */
+function updateTenant(id, updates) {
+  const index = store.tenants.findIndex(t => t.id === id);
+  if (index === -1) return null;
+  store.tenants[index] = { ...store.tenants[index], ...updates, updatedAt: new Date().toISOString() };
+  return store.tenants[index];
+}
+
+/**
+ * Returns all tenant plans (shallow copy of the list).
+ * @returns {import('./plans').Plan[]}
+ */
+function getPlans() {
+  return [...store.plans];
+}
+
 module.exports = {
+  getPlans,
   getClientMapping,
   saveClientMapping,
   getCustomers,
@@ -232,6 +286,9 @@ module.exports = {
   getTenants,
   getTenantByCustomerId,
   addTenant,
+  updateTenant,
+  findTenantBySubdomain,
+  setStepStatus,
   getOnboardingState,
   getAllOnboardingStates,
   addOnboardingState,
