@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
+const crypto = require('crypto');
 const store = require('./data/store');
+const { createCustomer, createDefaultOnboardingSteps, validateCustomerCreate } = require('./models');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -17,6 +19,23 @@ app.get('/api/health', (req, res) => {
 // Get all customers
 app.get('/api/customers', (req, res) => {
   res.json(store.getCustomers());
+});
+
+// Create customer (and its onboarding state)
+app.post('/api/customers', (req, res) => {
+  const { value, errors } = validateCustomerCreate(req.body);
+  if (errors) {
+    return res.status(400).json({ error: 'Validation failed', errors });
+  }
+  const customer = store.addCustomer(
+    createCustomer({ ...value, id: `cust_${crypto.randomUUID()}` })
+  );
+  store.addOnboardingState({
+    customerId: customer.id,
+    steps: createDefaultOnboardingSteps(),
+    progressPercent: 0
+  });
+  res.status(201).json(customer);
 });
 
 // Get customer by ID
@@ -66,7 +85,11 @@ app.get('/api/tenants/:customerId', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Onboarding API server running at http://localhost:${PORT}`);
-  console.log(`   Health check: http://localhost:${PORT}/api/health`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Onboarding API server running at http://localhost:${PORT}`);
+    console.log(`   Health check: http://localhost:${PORT}/api/health`);
+  });
+}
+
+module.exports = app;

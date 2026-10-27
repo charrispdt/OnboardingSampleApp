@@ -14,7 +14,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const loadOnboarding = () => {
     fetch('/api/onboarding')
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -33,7 +33,9 @@ function App() {
         setOnboardingData([]);
         setLoading(false);
       });
-  }, []);
+  };
+
+  useEffect(loadOnboarding, []);
 
   return (
     <div className="app">
@@ -59,7 +61,7 @@ function App() {
           <DashboardTab data={onboardingData} loading={loading} error={error} />
         )}
         {activeTab === 'customer-info' && (
-          <PlaceholderTab title="Customer Info" description="Collect and validate customer information" />
+          <CustomerInfoTab onCreated={loadOnboarding} />
         )}
         {activeTab === 'data-mapping' && (
           <PlaceholderTab title="Data Mapping" description="Map customer data to platform configuration" />
@@ -146,6 +148,73 @@ function Checklist({ steps }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+const EMPTY_CUSTOMER = { name: '', industry: '', region: '', contactEmail: '' };
+
+function CustomerInfoTab({ onCreated }) {
+  const [form, setForm] = useState(EMPTY_CUSTOMER);
+  const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState(null);
+  const [created, setCreated] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const update = (field) => (e) => setForm({ ...form, [field]: e.target.value });
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setErrors({});
+    setSubmitError(null);
+    setCreated(null);
+    try {
+      const res = await fetch('/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      });
+      const body = await res.json();
+      if (res.status === 400 && body.errors) {
+        setErrors(body.errors);
+      } else if (!res.ok) {
+        throw new Error(body.error || `HTTP ${res.status}`);
+      } else {
+        setCreated(body);
+        setForm(EMPTY_CUSTOMER);
+        onCreated();
+      }
+    } catch (err) {
+      setSubmitError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const field = (id, label, type = 'text') => (
+    <div className="form-field">
+      <label htmlFor={id}>{label}</label>
+      <input id={id} type={type} value={form[id]} onChange={update(id)} />
+      {errors[id] && <span className="field-error" role="alert">{errors[id]}</span>}
+    </div>
+  );
+
+  return (
+    <div>
+      <h2>Customer Info</h2>
+      <p style={{ color: '#6b7280', marginBottom: '20px' }}>Create a new customer to onboard</p>
+      <form className="customer-form" onSubmit={submit} noValidate>
+        {field('name', 'Name')}
+        {field('industry', 'Industry')}
+        {field('region', 'Region')}
+        {field('contactEmail', 'Contact Email', 'email')}
+        <button type="submit" className="submit-btn" disabled={submitting}>
+          {submitting ? 'Creating...' : 'Create Customer'}
+        </button>
+      </form>
+      {submitError && <p className="field-error" role="alert">{submitError}</p>}
+      {created && <p className="form-success" role="status">Created customer {created.name}</p>}
+    </div>
   );
 }
 
