@@ -12,6 +12,10 @@ const DEFAULT_CURRENCY = {
   'Asia Pacific': 'AUD'
 };
 
+// Dev-only: prefill forms with faker data. Skipped in automated browsers
+// (Playwright sets navigator.webdriver) so e2e specs start from empty forms.
+const PREFILL = import.meta.env.DEV && !navigator.webdriver;
+
 const TABS = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'customer-info', label: 'Customer Info' },
@@ -210,6 +214,21 @@ function CustomerInfoTab({ onCreated }) {
   const [submitError, setSubmitError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const fillSample = useCallback(() => {
+    if (!import.meta.env.DEV) return;
+    import('./sampleData.js').then(m => setForm(m.sampleCustomer({
+      regions: REGIONS,
+      currencies: CURRENCIES,
+      dateFormats: DATE_FORMATS,
+      plans: PLANS,
+      defaultCurrency: DEFAULT_CURRENCY
+    })));
+  }, []);
+
+  useEffect(() => {
+    if (PREFILL) fillSample();
+  }, [fillSample]);
+
   const update = (key) => (event) => {
     const value = event.target.value;
     setForm(prev => {
@@ -241,6 +260,7 @@ function CustomerInfoTab({ onCreated }) {
         return;
       }
       setForm(EMPTY_CUSTOMER);
+      if (PREFILL) fillSample();
       onCreated(body.customer);
     } catch (err) {
       setSubmitError(err.message);
@@ -305,6 +325,11 @@ function CustomerInfoTab({ onCreated }) {
       <button type="submit" className="button primary" disabled={submitting}>
         {submitting ? 'Saving…' : 'Save customer'}
       </button>
+      {import.meta.env.DEV && (
+        <button type="button" className="button" onClick={fillSample} style={{ marginLeft: '8px' }}>
+          Fill sample data
+        </button>
+      )}
     </form>
   );
 }
@@ -555,6 +580,17 @@ function TenantSetupTab({ customers, onChanged }) {
   }, [customerId, status, onChanged]);
 
   const update = (field) => (e) => setForm({ ...form, [field]: e.target.value });
+
+  const fillSample = () => {
+    if (!import.meta.env.DEV) return;
+    import('./sampleData.js').then(m => setForm(m.sampleTenant({ plans })));
+  };
+
+  // Prefill once the plans are loaded and a customer is chosen
+  useEffect(() => {
+    if (PREFILL && customerId && plans.length) fillSample();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerId, plans]);
 
   const submit = async (e) => {
     e.preventDefault();
