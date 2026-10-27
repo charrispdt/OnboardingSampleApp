@@ -241,6 +241,7 @@ Intentionally boring and fast:
 |--------|----------|-------------|
 | GET | `/api/health` | Health check |
 | GET | `/api/customers` | List all customers |
+| POST | `/api/customers` | Create a customer, with a pending tenant and onboarding state (400 on invalid fields, 409 on duplicate) |
 | GET | `/api/customers/:id` | Get customer by ID |
 | GET | `/api/customers/:id/onboarding` | Get onboarding state |
 | GET | `/api/onboarding` | Dashboard view (all states + customer info) |
