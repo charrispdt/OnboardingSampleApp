@@ -3,6 +3,18 @@ const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert');
 const app = require('./index');
 
+let customerSeq = 0;
+// Valid POST /api/customers body; ids are slugged from the name, so names must be unique per store
+const customerBody = (name, overrides = {}) => ({
+  name: `${name} ${++customerSeq}`,
+  industry: 'Software',
+  region: 'Europe',
+  contactEmail: 'contact@example.com',
+  currency: 'EUR',
+  dateFormat: 'YYYY-MM-DD',
+  ...overrides
+});
+
 describe('POST /api/customers', () => {
   let server;
   let base;
@@ -22,23 +34,24 @@ describe('POST /api/customers', () => {
       body: JSON.stringify(body)
     });
 
-  it('creates a customer with onboarding state', async () => {
-    const res = await post({ name: ' New Co ', industry: 'Retail', region: 'EMEA', contactEmail: 'a@b.example' });
+  it('creates a customer with a pending tenant and onboarding state', async () => {
+    const res = await post(customerBody(' New Co', { industry: 'Retail' }));
     assert.strictEqual(res.status, 201);
-    const customer = await res.json();
-    assert.strictEqual(customer.name, 'New Co');
+    const { customer, tenant } = await res.json();
+    assert.ok(customer.name.startsWith('New Co'));
+    assert.strictEqual(tenant.status, 'pending');
 
     const state = await fetch(`${base}/api/customers/${customer.id}/onboarding`);
     assert.strictEqual(state.status, 200);
-    assert.strictEqual((await state.json()).progressPercent, 0);
+    assert.strictEqual((await state.json()).progressPercent, 25);
   });
 
   it('rejects missing name and invalid email', async () => {
     const res = await post({ name: '  ', contactEmail: 'nope' });
     assert.strictEqual(res.status, 400);
     const body = await res.json();
-    assert.ok(body.errors.name);
-    assert.ok(body.errors.contactEmail);
+    assert.ok(body.fields.name);
+    assert.ok(body.fields.contactEmail);
   });
 
   it('rejects an empty body', async () => {
@@ -59,9 +72,9 @@ describe('Client field mapping API', () => {
     const res = await fetch(`${base}/api/customers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'Mapping Co', contactEmail: 'm@example.com' })
+      body: JSON.stringify(customerBody('Mapping Co'))
     });
-    customerId = (await res.json()).id;
+    customerId = (await res.json()).customer.id;
   });
 
   after(() => server.close());
@@ -117,7 +130,8 @@ describe('Client field mapping API', () => {
 
     const state = await (await fetch(`${base}/api/customers/${customerId}/onboarding`)).json();
     assert.strictEqual(state.steps.find((s) => s.name === 'Data Mapping').status, 'completed');
-    assert.strictEqual(state.progressPercent, 25);
+    // Customer Info is already completed by registration
+    assert.strictEqual(state.progressPercent, 50);
   });
 });
 
@@ -141,8 +155,8 @@ describe('Tenant provisioning API', () => {
     });
 
   const newCustomer = async (mapped = true) => {
-    const res = await json('/api/customers', 'POST', { name: 'Tenant Co', contactEmail: 'a@b.example' });
-    const { id } = await res.json();
+    const res = await json('/api/customers', 'POST', customerBody('Tenant Co'));
+    const { id } = (await res.json()).customer;
     if (mapped) {
       await json(`/api/customers/${id}/mappings/clients`, 'PUT', { columns: { ID: 'id', Name: 'name' } });
     }

@@ -5,10 +5,17 @@ const API = 'http://localhost:3001';
 
 async function createMappedCustomer(request, name) {
   const res = await request.post(`${API}/api/customers`, {
-    data: { name, industry: 'Software', region: 'EU', contactEmail: 'contact@example.com' }
+    data: {
+      name,
+      industry: 'Software',
+      region: 'Europe',
+      contactEmail: 'contact@example.com',
+      currency: 'EUR',
+      dateFormat: 'YYYY-MM-DD'
+    }
   });
   expect(res.ok()).toBeTruthy();
-  const customer = await res.json();
+  const { customer } = await res.json();
   const map = await request.put(`${API}/api/customers/${customer.id}/mappings/clients`, {
     data: { columns: { a: 'id', b: 'name' } }
   });
