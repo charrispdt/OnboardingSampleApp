@@ -20,8 +20,43 @@
  * @property {string} customerId - Associated customer ID
  * @property {string} status - 'pending' | 'provisioning' | 'active' | 'failed'
  * @property {string} plan - 'starter' | 'professional' | 'enterprise'
+ * @property {string} subdomain - Tenant subdomain
+ * @property {string} adminEmail - Tenant admin email
+ * @property {string|null} error - Last provisioning error, if any
  * @property {string} createdAt - ISO timestamp
+ * @property {string} updatedAt - ISO timestamp
  */
+
+/**
+ * @typedef {Object} TenantProvisionDTO
+ * @property {string} plan - Key of a seeded plan
+ * @property {string} subdomain - Lowercased subdomain (3-30 chars)
+ * @property {string} adminEmail - Tenant admin email
+ */
+
+/**
+ * Validates and normalizes a tenant provisioning payload.
+ * @param {any} body
+ * @param {string[]} planKeys - Keys of the plans that can be chosen
+ * @returns {{ value?: TenantProvisionDTO, errors?: Record<string, string> }}
+ */
+function validateTenantProvision(body, planKeys) {
+  const src = body && typeof body === 'object' ? body : {};
+  const str = (v) => (typeof v === 'string' ? v.trim() : '');
+  const value = {
+    plan: str(src.plan),
+    subdomain: str(src.subdomain).toLowerCase(),
+    adminEmail: str(src.adminEmail)
+  };
+  const errors = {};
+  if (!planKeys.includes(value.plan)) errors.plan = `Plan must be one of: ${planKeys.join(', ')}`;
+  if (!/^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$/.test(value.subdomain)) {
+    errors.subdomain = 'Subdomain must be 3-30 characters: lowercase letters, digits and hyphens, not starting or ending with a hyphen';
+  }
+  if (!value.adminEmail) errors.adminEmail = 'Admin email is required';
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.adminEmail)) errors.adminEmail = 'Admin email is invalid';
+  return Object.keys(errors).length ? { errors } : { value };
+}
 
 /**
  * @typedef {Object} OnboardingStep
@@ -67,7 +102,11 @@ function createTenant(data) {
     customerId: data.customerId || '',
     status: data.status || 'pending',
     plan: data.plan || 'starter',
-    createdAt: data.createdAt || new Date().toISOString()
+    subdomain: data.subdomain || '',
+    adminEmail: data.adminEmail || '',
+    error: data.error || null,
+    createdAt: data.createdAt || new Date().toISOString(),
+    updatedAt: data.updatedAt || data.createdAt || new Date().toISOString()
   };
 }
 
@@ -96,6 +135,7 @@ function calculateProgress(steps) {
 }
 
 module.exports = {
+  validateTenantProvision,
   createCustomer,
   createTenant,
   createDefaultOnboardingSteps,

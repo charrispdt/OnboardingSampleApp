@@ -34,10 +34,10 @@ test.describe('Onboarding Dashboard', () => {
   test('should switch between tabs', async ({ page }) => {
     await page.goto('/');
 
-    // Click on Data Mapping tab
-    await page.getByRole('button', { name: 'Data Mapping' }).click();
+    // Click on Import tab (the remaining placeholder)
+    await page.getByRole('button', { name: 'Import' }).click();
 
     // Verify placeholder content is shown
-    await expect(page.locator('.placeholder h2')).toContainText('Data Mapping');
+    await expect(page.locator('.placeholder h2')).toContainText('Import');
   });
 });
