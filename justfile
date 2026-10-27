@@ -43,3 +43,11 @@ test-unit:
 # Run Playwright e2e tests
 test-e2e:
     npm run test:e2e
+
+# Lint all JavaScript with ESLint
+lint:
+    npm run lint
+
+# Lint and auto-fix what ESLint can
+lint-fix:
+    npm run lint:fix
