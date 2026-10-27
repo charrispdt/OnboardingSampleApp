@@ -25,17 +25,16 @@ test.describe('Onboarding Dashboard', () => {
     await page.goto('/');
 
     // Wait for data to load and verify example customer is shown
-    await expect(page.locator('.customer-card')).toBeVisible();
-    await expect(page.locator('.customer-card h3')).toContainText('Acme Corporation');
+    await expect(page.getByRole('heading', { name: 'Acme Corporation' })).toBeVisible();
   });
 
   test('should switch between tabs', async ({ page }) => {
     await page.goto('/');
 
-    // Click on Customer Info tab
-    await page.getByRole('button', { name: 'Customer Info' }).click();
-    
+    // Click on Tenant Setup tab (Customer Info and Data Mapping now have real UIs)
+    await page.getByRole('button', { name: 'Tenant Setup' }).click();
+
     // Verify placeholder content is shown
-    await expect(page.locator('.placeholder h2')).toContainText('Customer Info');
+    await expect(page.locator('.placeholder h2')).toContainText('Tenant Setup');
   });
 });

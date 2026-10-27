@@ -41,7 +41,11 @@ Requires Node 20.19+ or 22.12+.
 - Data is in-memory and resets on restart, which is fine for this exercise.
 - Status enums: tenant `pending|provisioning|active|failed`; step `pending|in_progress|completed|failed`.
 
-## Regression test best practices
+## Testing (temporarily paused)
+
+**Skip tests for now.** Don't write, update, or run tests (`just test`, `just test-unit`, `just test-e2e`) as part of changes until this section is removed. This overrides the regression test practices below.
+
+## Regression test best practices (inactive while testing is paused)
 
 1. **Reproduce before fixing.** For every bug, first write a test that fails because of that bug. Then fix the code and watch the test pass.
 2. **One test per bug, named after the behavior.** Example: `it('returns 404 for unknown customer id')`. Add a comment that links the issue or PR.

@@ -3,7 +3,7 @@
  * Simple storage for the training exercise - no database needed
  */
 
-const { createCustomer, createTenant, createDefaultOnboardingSteps } = require('../models');
+const { createCustomer, createTenant, createDefaultOnboardingSteps, calculateProgress } = require('../models');
 
 /**
  * Data Transfer Objects (DTOs)
@@ -51,6 +51,7 @@ const { createCustomer, createTenant, createDefaultOnboardingSteps } = require('
  * @property {CustomerDTO[]} customers
  * @property {TenantDTO[]} tenants
  * @property {OnboardingStateDTO[]} onboardingStates
+ * @property {Record<string, import('../models/mapping').ClientMappingDTO>} clientMappings - Keyed by customer ID
  */
 
 // In-memory storage
@@ -58,7 +59,8 @@ const { createCustomer, createTenant, createDefaultOnboardingSteps } = require('
 const store = {
   customers: [],
   tenants: [],
-  onboardingStates: []
+  onboardingStates: [],
+  clientMappings: {}
 };
 
 // Seed with example data
@@ -196,7 +198,34 @@ function updateOnboardingState(customerId, updates) {
   return null;
 }
 
+/**
+ * Returns the saved client field mapping of a customer.
+ * @param {string} customerId
+ * @returns {import('../models/mapping').ClientMappingDTO|undefined}
+ */
+function getClientMapping(customerId) {
+  return store.clientMappings[customerId];
+}
+
+/**
+ * Saves a customer's client field mapping and completes the Data Mapping step.
+ * @param {string} customerId
+ * @param {import('../models/mapping').ClientMappingDTO} mapping
+ * @returns {import('../models/mapping').ClientMappingDTO} The saved mapping
+ */
+function saveClientMapping(customerId, mapping) {
+  store.clientMappings[customerId] = mapping;
+  const state = getOnboardingState(customerId);
+  if (state) {
+    const steps = state.steps.map(s => (s.name === 'Data Mapping' ? { ...s, status: 'completed' } : s));
+    updateOnboardingState(customerId, { steps, progressPercent: calculateProgress(steps) });
+  }
+  return mapping;
+}
+
 module.exports = {
+  getClientMapping,
+  saveClientMapping,
   getCustomers,
   getCustomerById,
   addCustomer,

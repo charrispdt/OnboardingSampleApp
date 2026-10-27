@@ -214,3 +214,30 @@ header p {
   opacity: 0.6;
   cursor: default;
 }
+
+.form-field select {
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.mapping-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0 12px;
+}
+
+.mapping-table th,
+.mapping-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.mapping-table select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+}

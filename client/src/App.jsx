@@ -64,7 +64,7 @@ function App() {
           <CustomerInfoTab onCreated={loadOnboarding} />
         )}
         {activeTab === 'data-mapping' && (
-          <PlaceholderTab title="Data Mapping" description="Map customer data to platform configuration" />
+          <DataMappingTab customers={onboardingData} onSaved={loadOnboarding} />
         )}
         {activeTab === 'tenant-setup' && (
           <PlaceholderTab title="Tenant Setup" description="Provision and configure customer tenant" />
@@ -214,6 +214,165 @@ function CustomerInfoTab({ onCreated }) {
       </form>
       {submitError && <p className="field-error" role="alert">{submitError}</p>}
       {created && <p className="form-success" role="status">Created customer {created.name}</p>}
+    </div>
+  );
+}
+
+// Header row only; quoted commas are handled so "Smith, John" stays one column
+function parseCsvHeader(text) {
+  const line = text.split(/\r?\n/)[0] || '';
+  const cols = [];
+  let cur = '';
+  let quoted = false;
+  for (const ch of line) {
+    if (ch === '"') quoted = !quoted;
+    else if (ch === ',' && !quoted) { cols.push(cur.trim()); cur = ''; }
+    else cur += ch;
+  }
+  cols.push(cur.trim());
+  return cols.filter(Boolean);
+}
+
+function DataMappingTab({ customers, onSaved }) {
+  const [customerId, setCustomerId] = useState('');
+  const [fields, setFields] = useState([]);
+  const [columns, setColumns] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [message, setMessage] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/mappings/clients/fields')
+      .then(res => res.json())
+      .then(setFields)
+      .catch(err => setMessage({ error: true, text: err.message }));
+  }, []);
+
+  const selectCustomer = (id) => {
+    setCustomerId(id);
+    setColumns(null);
+    setErrors({});
+    setMessage(null);
+  };
+
+  useEffect(() => {
+    if (!customerId) return;
+    fetch(`/api/customers/${customerId}/mappings/clients`)
+      .then(res => (res.ok ? res.json() : null))
+      .then(mapping => mapping && setColumns(mapping.columns))
+      .catch(() => {});
+  }, [customerId]);
+
+  const loadFile = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setErrors({});
+    setMessage(null);
+    const headers = parseCsvHeader(await file.text());
+    if (headers.length === 0) {
+      setMessage({ error: true, text: 'No columns found in file' });
+      return;
+    }
+    const res = await fetch('/api/mappings/clients/suggest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ headers })
+    });
+    setColumns((await res.json()).columns);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    setErrors({});
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/customers/${customerId}/mappings/clients`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ columns })
+      });
+      const body = await res.json();
+      if (res.status === 400 && body.errors) {
+        setErrors(body.errors);
+      } else if (!res.ok) {
+        throw new Error(body.error || `HTTP ${res.status}`);
+      } else {
+        setMessage({ text: 'Mapping saved' });
+        onSaved();
+      }
+    } catch (err) {
+      setMessage({ error: true, text: err.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <h2>Data Mapping</h2>
+      <p style={{ color: '#6b7280', marginBottom: '20px' }}>
+        Map the customer&apos;s client file columns to platform fields
+      </p>
+
+      <div className="customer-form">
+        <div className="form-field">
+          <label htmlFor="mapping-customer">Customer</label>
+          <select id="mapping-customer" value={customerId} onChange={e => selectCustomer(e.target.value)}>
+            <option value="">Select a customer</option>
+            {customers.map(c => (
+              <option key={c.customerId} value={c.customerId}>{c.customerName}</option>
+            ))}
+          </select>
+        </div>
+
+        {customerId && (
+          <div className="form-field">
+            <label htmlFor="mapping-file">Clients CSV</label>
+            <input id="mapping-file" type="file" accept=".csv,text/csv" onChange={loadFile} />
+          </div>
+        )}
+      </div>
+
+      {customerId && columns && (
+        <>
+          <table className="mapping-table">
+            <thead>
+              <tr><th>Source column</th><th>Platform field</th></tr>
+            </thead>
+            <tbody>
+              {Object.entries(columns).map(([col, target]) => (
+                <tr key={col}>
+                  <td>{col}</td>
+                  <td>
+                    <select
+                      aria-label={`Target for ${col}`}
+                      value={target || ''}
+                      onChange={e => setColumns({ ...columns, [col]: e.target.value || null })}
+                    >
+                      <option value="">— Ignore —</option>
+                      {fields.map(f => (
+                        <option key={f.key} value={f.key}>{f.label}{f.required ? ' *' : ''}</option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {Object.entries(errors).map(([key, text]) => (
+            <p key={key} className="field-error" role="alert">{text}</p>
+          ))}
+          <button type="button" className="submit-btn" onClick={save} disabled={saving}>
+            {saving ? 'Saving...' : 'Save Mapping'}
+          </button>
+        </>
+      )}
+
+      {message && (
+        <p className={message.error ? 'field-error' : 'form-success'} role={message.error ? 'alert' : 'status'}>
+          {message.text}
+        </p>
+      )}
     </div>
   );
 }

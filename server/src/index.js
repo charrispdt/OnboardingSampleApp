@@ -3,6 +3,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const store = require('./data/store');
 const { createCustomer, createDefaultOnboardingSteps, validateCustomerCreate } = require('./models');
+const { CLIENT_TARGET_FIELDS, suggestClientMapping, validateClientMapping } = require('./models/mapping');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -73,6 +74,44 @@ app.get('/api/onboarding', (req, res) => {
   });
   
   res.json(dashboard);
+});
+
+// Client field mapping: platform target fields
+app.get('/api/mappings/clients/fields', (req, res) => {
+  res.json(CLIENT_TARGET_FIELDS);
+});
+
+// Client field mapping: suggest targets for source CSV headers
+app.post('/api/mappings/clients/suggest', (req, res) => {
+  const headers = req.body?.headers;
+  if (!Array.isArray(headers) || !headers.every(h => typeof h === 'string')) {
+    return res.status(400).json({ error: 'headers must be an array of strings' });
+  }
+  res.json({ columns: suggestClientMapping(headers) });
+});
+
+// Get a customer's saved client field mapping
+app.get('/api/customers/:id/mappings/clients', (req, res) => {
+  if (!store.getCustomerById(req.params.id)) {
+    return res.status(404).json({ error: 'Customer not found' });
+  }
+  const mapping = store.getClientMapping(req.params.id);
+  if (!mapping) {
+    return res.status(404).json({ error: 'Mapping not found' });
+  }
+  res.json(mapping);
+});
+
+// Save a customer's client field mapping (completes the Data Mapping step)
+app.put('/api/customers/:id/mappings/clients', (req, res) => {
+  if (!store.getCustomerById(req.params.id)) {
+    return res.status(404).json({ error: 'Customer not found' });
+  }
+  const { value, errors } = validateClientMapping(req.body);
+  if (errors) {
+    return res.status(400).json({ error: 'Validation failed', errors });
+  }
+  res.json(store.saveClientMapping(req.params.id, value));
 });
 
 // Get tenant by customer ID
