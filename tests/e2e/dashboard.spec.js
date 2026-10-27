@@ -25,7 +25,10 @@ test.describe('Onboarding Dashboard', () => {
     await page.goto('/');
 
     // Wait for data to load and verify example customer is shown
-    await expect(page.getByRole('heading', { name: 'Acme Corporation' })).toBeVisible();
+    // (other tests may add customers to the shared queue)
+    const card = page.locator('.customer-card', { hasText: 'Acme Corporation' });
+    await expect(card).toBeVisible();
+    await expect(card.locator('h3')).toContainText('Acme Corporation');
   });
 
   test('should switch between tabs', async ({ page }) => {

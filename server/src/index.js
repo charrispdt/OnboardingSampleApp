@@ -2,14 +2,9 @@ const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
 const store = require('./data/store');
-const {
-  createCustomer,
-  createTenant,
-  createDefaultOnboardingSteps,
-  validateCustomerCreate,
-  validateTenantProvision
-} = require('./models');
+const { createTenant, validateTenantProvision } = require('./models');
 const { CLIENT_TARGET_FIELDS, suggestClientMapping, validateClientMapping } = require('./models/mapping');
+const { registerCustomer } = require('./services/customers');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -28,21 +23,16 @@ app.get('/api/customers', (req, res) => {
   res.json(store.getCustomers());
 });
 
-// Create customer (and its onboarding state)
+// Create a customer, with a pending tenant and onboarding state
 app.post('/api/customers', (req, res) => {
-  const { value, errors } = validateCustomerCreate(req.body);
-  if (errors) {
-    return res.status(400).json({ error: 'Validation failed', errors });
+  const result = registerCustomer(req.body);
+  if (result.errors) {
+    return res.status(400).json({ error: 'Invalid customer', fields: result.errors });
   }
-  const customer = store.addCustomer(
-    createCustomer({ ...value, id: `cust_${crypto.randomUUID()}` })
-  );
-  store.addOnboardingState({
-    customerId: customer.id,
-    steps: createDefaultOnboardingSteps(),
-    progressPercent: 0
-  });
-  res.status(201).json(customer);
+  if (result.conflict) {
+    return res.status(409).json({ error: result.conflict });
+  }
+  res.status(201).json(result);
 });
 
 // Get customer by ID

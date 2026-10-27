@@ -9,6 +9,8 @@
  * @property {string} industry - Industry vertical
  * @property {string} region - Geographic region
  * @property {string} contactEmail - Primary contact email
+ * @property {string} currency - ISO currency code of the customer's amounts
+ * @property {string} dateFormat - Date format used in the customer's source files
  * @property {string} createdAt - ISO timestamp
  */
 
@@ -72,37 +74,6 @@ function validateTenantProvision(body, planKeys) {
  */
 
 /**
- * @typedef {Object} CustomerCreateDTO
- * @property {string} name - Customer/company name (required)
- * @property {string} [industry] - Industry vertical
- * @property {string} [region] - Geographic region
- * @property {string} contactEmail - Primary contact email (required)
- */
-
-/**
- * Validates and normalizes a customer create payload.
- * @param {any} body
- * @returns {{ value?: CustomerCreateDTO, errors?: Record<string, string> }}
- */
-function validateCustomerCreate(body) {
-  const src = body && typeof body === 'object' ? body : {};
-  const str = (v) => (typeof v === 'string' ? v.trim() : '');
-  const value = {
-    name: str(src.name),
-    industry: str(src.industry),
-    region: str(src.region),
-    contactEmail: str(src.contactEmail)
-  };
-  const errors = {};
-  if (!value.name) errors.name = 'Name is required';
-  if (!value.contactEmail) errors.contactEmail = 'Contact email is required';
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.contactEmail)) {
-    errors.contactEmail = 'Contact email is invalid';
-  }
-  return Object.keys(errors).length ? { errors } : { value };
-}
-
-/**
  * Creates a new Customer object
  * @param {Partial<Customer>} data 
  * @returns {Customer}
@@ -114,6 +85,8 @@ function createCustomer(data) {
     industry: data.industry || '',
     region: data.region || '',
     contactEmail: data.contactEmail || '',
+    currency: data.currency || '',
+    dateFormat: data.dateFormat || '',
     createdAt: data.createdAt || new Date().toISOString()
   };
 }
@@ -163,7 +136,6 @@ function calculateProgress(steps) {
 
 module.exports = {
   validateTenantProvision,
-  validateCustomerCreate,
   createCustomer,
   createTenant,
   createDefaultOnboardingSteps,
