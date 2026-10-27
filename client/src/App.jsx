@@ -243,7 +243,10 @@ function DataMappingTab({ customers, onSaved }) {
 
   useEffect(() => {
     fetch('/api/mappings/clients/fields')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error(`Could not load platform fields (HTTP ${res.status})`);
+        return res.json();
+      })
       .then(setFields)
       .catch(err => setMessage({ error: true, text: err.message }));
   }, []);
@@ -273,12 +276,17 @@ function DataMappingTab({ customers, onSaved }) {
       setMessage({ error: true, text: 'No columns found in file' });
       return;
     }
-    const res = await fetch('/api/mappings/clients/suggest', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ headers })
-    });
-    setColumns((await res.json()).columns);
+    try {
+      const res = await fetch('/api/mappings/clients/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ headers })
+      });
+      if (!res.ok) throw new Error(`Could not suggest a mapping (HTTP ${res.status})`);
+      setColumns((await res.json()).columns);
+    } catch (err) {
+      setMessage({ error: true, text: err.message });
+    }
   };
 
   const save = async () => {
@@ -291,7 +299,7 @@ function DataMappingTab({ customers, onSaved }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ columns })
       });
-      const body = await res.json();
+      const body = await res.json().catch(() => ({}));
       if (res.status === 400 && body.errors) {
         setErrors(body.errors);
       } else if (!res.ok) {
